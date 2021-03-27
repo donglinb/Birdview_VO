@@ -5,11 +5,14 @@
 #include "Tracking.h"
 
 #include <iostream>
-#include <opencv2/highgui/highgui.hpp>
 #include <utility>
+#include <thread>
+#include <opencv2/highgui/highgui.hpp>
 
 #include "Config.h"
 #include "Optimizer.h"
+#include "KeyLineGeometry.h"
+#include "Timer.h"
 
 namespace birdview
 {
@@ -20,11 +23,17 @@ std::ostream& operator<<(std::ostream& o, const SE2& pose)
 }
 
 Tracker::Tracker(MapPtr pMap)
-  : mpMap(std::move(pMap)), mpMapViewer(nullptr), mpFrame(nullptr), mpKF(nullptr)
+  : mpMap(std::move(pMap)), mpMapViewer(nullptr), mpFrame(nullptr), mpKF(nullptr),
+  mpLineExtractor(nullptr)
 {
     mpPointExtractor = std::make_shared<PointExtractor>();
     mpPointMatcher = std::make_shared<PointMatcher>();
     mpIcpSolver = std::make_shared<IcpSolver>(Config::MaxIterationsRansac());
+
+    if(Config::UseLines())
+    {
+        mpLineExtractor = std::make_shared<LineExtractor>();
+    }
 }
 
 void Tracker::SetMapViewer(MapViewerPtr pMapViewer)
@@ -34,12 +43,21 @@ void Tracker::SetMapViewer(MapViewerPtr pMapViewer)
 
 SE2 Tracker::Track(const cv::Mat& imageRaw, const cv::Mat& mask)
 {
-    mpFrame = std::make_shared<Frame>(imageRaw, mpPointExtractor, mask);
+    if(Config::UseLines())
+    {
+        // mpFrame = std::make_shared<Frame>(imageRaw, mpPointExtractor, mpLineExtractor, mask);
+        mpFrame = std::make_shared<Frame>(imageRaw, mpPointExtractor, mask);
+    }
+    else
+    {
+        mpFrame = std::make_shared<Frame>(imageRaw, mpPointExtractor, mask);
+    }
 
     if(!mpKF)
     {
         if(mpFrame->GetNumPoints() >= Config::KeyFrameFeature())
         {
+            CalculateLineMainDirs(mpFrame);
             CreateKeyFrame();
 
             mpMap->AddKeyFrame(mpKF);
@@ -61,15 +79,25 @@ SE2 Tracker::Track(const cv::Mat& imageRaw, const cv::Mat& mask)
         return mpFrame->GetPoseTbw();
     }
 
+    std::thread tLines(&Tracker::CalculateLineMainDirs, this, ref(mpFrame));
+
+    Timer timer_track;
+    timer_track.start();
+
     mvMatches12.clear();
     int nMatched = mpPointMatcher->Match(mpKF,mpFrame,mvMatches12,mvPrevMatched);
     ComputeCurrentPose();
+
+    timer_track.stop();
+    std::cout << "Match keypoints and compute pose cost " << timer_track.getElapsedTimeInMilliSec() << std::endl;
 
     {
         cv::Mat matchImg;
         cv::drawMatches(mpKF->GetImageRaw(),mpKF->GetKeyPoints(),mpFrame->GetImageRaw(),mpFrame->GetKeyPoints(),mvMatches12,matchImg);
         cv::imshow("Matches", matchImg);
     }
+
+    tLines.join();
 
     if(NeedNewKeyFrame(nMatched))
     {
@@ -191,6 +219,34 @@ void Tracker::AssociateMapPoints()
     std::cout << "KeyFrame #" << mpKF->Id() << ":" << std::endl;
     std::cout << "Tracked old: " << track_old << ", Local track: " << local_map
                 << ", Add new: " << add_new << std::endl;
+}
+
+bool Tracker::CalculateLineMainDirs(const FramePtr& pFrame)
+{
+    if(!Config::UseLines())
+        return false;
+
+    Timer timer_line;
+    timer_line.start();
+
+    const cv::Mat& imageRaw = pFrame->GetImageRaw();
+    const cv::Mat& mask = pFrame->GetMaskRaw();
+    std::vector<KeyLine> vKeyLines;
+    mpLineExtractor->extractLines(imageRaw, vKeyLines, mask);
+    std::vector<bool> status;
+    cv::Point3f dir1, dir2;
+    KeyLineGeometry::FindMajorDirection(vKeyLines, status, dir1, dir2);
+    pFrame->SetMainDirs(dir1, dir2);
+
+    timer_line.stop();
+    std::cout << "Extract line cost " << timer_line.getElapsedTimeInMilliSec() << " ms" << std::endl;
+
+    KeyLineGeometry::reduceVector(vKeyLines, status);
+    cv::Mat keylineImg;
+    mpLineExtractor->drawKeylines(imageRaw, vKeyLines, keylineImg);
+    cv::imshow("KeyLines", keylineImg);
+
+    return true;
 }
 
 }  // namespace birdview

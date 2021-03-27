@@ -10,6 +10,7 @@
 #include <opencv2/core/core.hpp>
 
 #include "PointExtractor.h"
+#include "LineExtractor.h"
 #include "SE2.h"
 
 namespace birdview
@@ -19,6 +20,7 @@ class Frame
 {
 public:
     Frame(const cv::Mat& imageRaw, PointExtractorPtr pPointExtractor, const cv::Mat& mask = cv::Mat());
+    Frame(const cv::Mat& imageRaw, PointExtractorPtr pPointExtractor, LineExtractorPtr pLineExtractor, const cv::Mat& mask = cv::Mat());
 
     int FrameId() const { return mnFrameId; }
     int GetNumPoints() const { return mvKeyPoints.size(); }
@@ -29,6 +31,12 @@ public:
     cv::Mat GetDescriptor(int idx) const { assert(idx < mDescriptors.rows); return mDescriptors.row(idx); }
     const cv::Mat& GetDescriptors() const { return mDescriptors; }
     const cv::Mat& GetImageRaw() const { return mImageRaw; }
+    const cv::Mat& GetMaskRaw() const { return mMaskRaw; }
+
+    // manhattan lines
+    bool CalculateLineMainDirs();
+    bool GetMainDirs(cv::Point3f& dir1, cv::Point3f& dir2) const;
+    void SetMainDirs(const cv::Point3f& dir1, const cv::Point3f& dir2);
 
     static bool PosInGrid(const cv::Point2f& pt, int& posX, int& posY) ;
     void AssignKeyPointsInGrid();
@@ -63,7 +71,13 @@ protected:
     cv::Mat mDescriptors;
     PointExtractorPtr mpPointExtractor;
 
+    // manhattan lines
+    LineExtractorPtr mpLineExtractor;
+    cv::Point3f mMainDir1, mMainDir2;
+    bool mbIsMainDirSet;
+
     cv::Mat mImageRaw;
+    cv::Mat mMaskRaw;
 
     typedef std::vector<std::size_t> GridElement;
     std::vector<std::vector<GridElement>> mGrid;

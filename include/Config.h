@@ -18,6 +18,7 @@ public:
     static float MinTrackedRatio() { return mfMinTrackedRatio; }
     static int MinTrackedPoints() { return mnMinTrackedPoints; }
     static int MaxIterationsRansac() { return mnMaxIterationsRansac; }
+    static bool UseLines() { return mbUseLines; }
 
 protected:
 
@@ -27,6 +28,8 @@ protected:
     static int mnMinTrackedPoints;
 
     static int mnMaxIterationsRansac;
+
+    static bool mbUseLines;
 
 };
 

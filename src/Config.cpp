@@ -14,4 +14,6 @@ int Config::mnMinTrackedPoints = 30;
 
 int Config::mnMaxIterationsRansac = 100;
 
+bool Config::mbUseLines = true;
+
 }  // namespace birdview

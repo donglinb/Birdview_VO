@@ -5,8 +5,10 @@
 #include "Frame.h"
 
 #include <utility>
-
+#include <thread>
 #include <opencv2/highgui/highgui.hpp>
+#include "KeyLineGeometry.h"
+#include "Timer.h"
 
 namespace birdview
 {
@@ -27,7 +29,8 @@ int Frame::birdviewRows = 0, Frame::birdviewCols = 0;
 float Frame::mfGridElementWidthInv = 0.0, Frame::mfGridElementHeightInv = 0.0;
 
 Frame::Frame(const cv::Mat& imageRaw, PointExtractorPtr pPointExtractor, const cv::Mat& mask)
-        : mpPointExtractor(std::move(pPointExtractor)) , mImageRaw(imageRaw.clone())
+        : mpPointExtractor(std::move(pPointExtractor)) , mImageRaw(imageRaw.clone()), mMaskRaw(mask.clone()),
+        mbIsMainDirSet(false), mpLineExtractor(nullptr)
 {
     mnFrameId = mnNextFrameId++;
 
@@ -53,6 +56,40 @@ Frame::Frame(const cv::Mat& imageRaw, PointExtractorPtr pPointExtractor, const c
     cv::Mat keypointImg;
     cv::drawKeypoints(imageRaw, mvKeyPoints, keypointImg);
     cv::imshow("Keypoint", keypointImg);
+}
+
+Frame::Frame(const cv::Mat &imageRaw, PointExtractorPtr pPointExtractor, LineExtractorPtr pLineExtractor, const cv::Mat &mask)
+  : mpPointExtractor(std::move(pPointExtractor)) , mImageRaw(imageRaw.clone()), mMaskRaw(mask.clone()),
+    mbIsMainDirSet(false), mpLineExtractor(std::move(pLineExtractor))
+{
+    mnFrameId = mnNextFrameId++;
+
+    if(!mbParamsSet)
+    {
+        birdviewCols = imageRaw.cols;
+        birdviewRows = imageRaw.rows;
+        mfGridElementWidthInv = double(FRAME_GRID_COLS) / birdviewCols;
+        mfGridElementHeightInv = double(FRAME_GRID_ROWS) / birdviewRows;
+
+        mbParamsSet = true;
+    }
+
+    std::thread tLineExtraction(&Frame::CalculateLineMainDirs, this);
+
+    mpPointExtractor->ExtractKeyPoints(imageRaw, mvKeyPoints, mDescriptors, mask);
+    for(const cv::KeyPoint& kp : mvKeyPoints)
+    {
+        mvKeyPointsXY.push_back(BirdviewKP2XY(kp));
+    }
+    assert(mvKeyPoints.size() == mvKeyPointsXY.size());
+
+    AssignKeyPointsInGrid();
+
+    cv::Mat keypointImg;
+    cv::drawKeypoints(imageRaw, mvKeyPoints, keypointImg);
+    cv::imshow("Keypoint", keypointImg);
+
+    tLineExtraction.join();
 }
 
 bool Frame::PosInGrid(const cv::Point2f& pt, int& posX, int& posY)
@@ -171,5 +208,43 @@ bool Frame::PosInImage(const cv::Point2f &pt)
         return false;
     return true;
 }
+
+bool Frame::GetMainDirs(cv::Point3f &dir1, cv::Point3f &dir2) const
+{
+    if(!mbIsMainDirSet)
+    {
+        return false;
+    }
+    dir1 = mMainDir1;
+    dir2 = mMainDir2;
+    return true;
+}
+
+void Frame::SetMainDirs(const cv::Point3f &dir1, const cv::Point3f &dir2)
+{
+    mMainDir1 = dir1;
+    mMainDir2 = dir2;
+    mbIsMainDirSet = true;
+}
+
+bool Frame::CalculateLineMainDirs()
+{
+    if(!mpLineExtractor)
+        return false;
+
+    std::vector<KeyLine> vKeyLines;
+    mpLineExtractor->extractLines(mImageRaw, vKeyLines, mMaskRaw);
+    std::vector<bool> status;
+    KeyLineGeometry::FindMajorDirection(vKeyLines, status, mMainDir1, mMainDir2);
+    mbIsMainDirSet = true;
+
+    KeyLineGeometry::reduceVector(vKeyLines, status);
+    cv::Mat keylineImg;
+    mpLineExtractor->drawKeylines(mImageRaw, vKeyLines, keylineImg);
+    cv::imshow("KeyLines", keylineImg);
+
+    return true;
+}
+
 
 }  // namespace birdview

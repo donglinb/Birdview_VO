@@ -12,6 +12,7 @@
 
 #include "PointExtractor.h"
 #include "PointMatcher.h"
+#include "LineExtractor.h"
 #include "IcpSolver.h"
 #include "Frame.h"
 #include "KeyFrame.h"
@@ -34,6 +35,9 @@ public:
     void CreateKeyFrame();
     void AssociateMapPoints();
 
+    // manhattan lines
+    bool CalculateLineMainDirs(const FramePtr& pFrame);
+
     void SetMapViewer(MapViewerPtr pMapViewer);
 
 protected:
@@ -44,6 +48,7 @@ protected:
     PointExtractorPtr mpPointExtractor;
     PointMatcherPtr mpPointMatcher;
     IcpSolverPtr mpIcpSolver;
+    LineExtractorPtr mpLineExtractor;
 
     FramePtr mpFrame;
     KeyFramePtr mpKF;

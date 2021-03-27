@@ -30,7 +30,7 @@ float Frame::mfGridElementWidthInv = 0.0, Frame::mfGridElementHeightInv = 0.0;
 
 Frame::Frame(const cv::Mat& imageRaw, PointExtractorPtr pPointExtractor, const cv::Mat& mask)
         : mpPointExtractor(std::move(pPointExtractor)) , mImageRaw(imageRaw.clone()), mMaskRaw(mask.clone()),
-        mbIsMainDirSet(false), mpLineExtractor(nullptr)
+        mbIsMajorLineSet(false), mpLineExtractor(nullptr)
 {
     mnFrameId = mnNextFrameId++;
 
@@ -52,15 +52,11 @@ Frame::Frame(const cv::Mat& imageRaw, PointExtractorPtr pPointExtractor, const c
     assert(mvKeyPoints.size() == mvKeyPointsXY.size());
 
     AssignKeyPointsInGrid();
-
-    cv::Mat keypointImg;
-    cv::drawKeypoints(imageRaw, mvKeyPoints, keypointImg);
-    cv::imshow("Keypoint", keypointImg);
 }
 
 Frame::Frame(const cv::Mat &imageRaw, PointExtractorPtr pPointExtractor, LineExtractorPtr pLineExtractor, const cv::Mat &mask)
   : mpPointExtractor(std::move(pPointExtractor)) , mImageRaw(imageRaw.clone()), mMaskRaw(mask.clone()),
-    mbIsMainDirSet(false), mpLineExtractor(std::move(pLineExtractor))
+    mbIsMajorLineSet(false), mpLineExtractor(std::move(pLineExtractor))
 {
     mnFrameId = mnNextFrameId++;
 
@@ -74,7 +70,7 @@ Frame::Frame(const cv::Mat &imageRaw, PointExtractorPtr pPointExtractor, LineExt
         mbParamsSet = true;
     }
 
-    std::thread tLineExtraction(&Frame::CalculateLineMainDirs, this);
+    std::thread tLineExtraction(&Frame::CalculateMajorLine, this);
 
     mpPointExtractor->ExtractKeyPoints(imageRaw, mvKeyPoints, mDescriptors, mask);
     for(const cv::KeyPoint& kp : mvKeyPoints)
@@ -84,10 +80,6 @@ Frame::Frame(const cv::Mat &imageRaw, PointExtractorPtr pPointExtractor, LineExt
     assert(mvKeyPoints.size() == mvKeyPointsXY.size());
 
     AssignKeyPointsInGrid();
-
-    cv::Mat keypointImg;
-    cv::drawKeypoints(imageRaw, mvKeyPoints, keypointImg);
-    cv::imshow("Keypoint", keypointImg);
 
     tLineExtraction.join();
 }
@@ -176,14 +168,19 @@ vector<size_t> Frame::GetFeaturesInArea(const float x, const float y, const floa
 
 cv::Point2f Frame::BirdviewKP2XY(const cv::KeyPoint &kp)
 {
+    return BirdviewPT2XY(kp.pt);
+}
+
+cv::Point2f Frame::BirdviewPT2XY(const cv::Point2f &kp)
+{
     if(!mbParamsSet)
     {
         throw std::runtime_error("Params not set yet.");
     }
 
     cv::Point2f p;
-    p.x = (birdviewRows/2.0-kp.pt.y)*pixel2meter+rear_axle_to_center;
-    p.y = (birdviewCols/2.0-kp.pt.x)*pixel2meter;
+    p.x = (birdviewRows/2.0-kp.y)*pixel2meter+rear_axle_to_center;
+    p.y = (birdviewCols/2.0-kp.x)*pixel2meter;
     // p.z = -0.32115;
 
     return p;
@@ -209,25 +206,23 @@ bool Frame::PosInImage(const cv::Point2f &pt)
     return true;
 }
 
-bool Frame::GetMainDirs(cv::Point3f &dir1, cv::Point3f &dir2) const
+bool Frame::GetMajorLine(Line& line) const
 {
-    if(!mbIsMainDirSet)
+    if(!mbIsMajorLineSet)
     {
         return false;
     }
-    dir1 = mMainDir1;
-    dir2 = mMainDir2;
+    line = mMajorLine;
     return true;
 }
 
-void Frame::SetMainDirs(const cv::Point3f &dir1, const cv::Point3f &dir2)
+void Frame::SetMajorLine(const Line& line)
 {
-    mMainDir1 = dir1;
-    mMainDir2 = dir2;
-    mbIsMainDirSet = true;
+    mMajorLine = line;
+    mbIsMajorLineSet = true;
 }
 
-bool Frame::CalculateLineMainDirs()
+bool Frame::CalculateMajorLine()
 {
     if(!mpLineExtractor)
         return false;
@@ -235,13 +230,11 @@ bool Frame::CalculateLineMainDirs()
     std::vector<KeyLine> vKeyLines;
     mpLineExtractor->extractLines(mImageRaw, vKeyLines, mMaskRaw);
     std::vector<bool> status;
-    KeyLineGeometry::FindMajorDirection(vKeyLines, status, mMainDir1, mMainDir2);
-    mbIsMainDirSet = true;
+    KeyLine major_line;
+    KeyLineGeometry::FindMajorDirection(vKeyLines, status, major_line);
+    mMajorLine = Line(BirdviewPT2XY(major_line.getStartPoint()), BirdviewPT2XY(major_line.getEndPoint()));
 
-    KeyLineGeometry::reduceVector(vKeyLines, status);
-    cv::Mat keylineImg;
-    mpLineExtractor->drawKeylines(mImageRaw, vKeyLines, keylineImg);
-    cv::imshow("KeyLines", keylineImg);
+    mbIsMajorLineSet = true;
 
     return true;
 }

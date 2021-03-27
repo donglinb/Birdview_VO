@@ -19,8 +19,11 @@ public:
 
     static cv::Point3f GetKeyLineCoeff(const KeyLine& kl);
     static cv::Point3f GetKeyLineIntersect(const KeyLine& kl1, const KeyLine& kl2);
+
+    // major direction is a line coefficient, and the numbers of lines parallel with it or its orthogonal is maximized
     static int FindMajorDirection(const std::vector<KeyLine>& vKeyLines, std::vector<bool>& status,
-                                  cv::Point3f& dir1_out, cv::Point3f& dir2_out, float thDist = 0.05);
+                                  KeyLine & major_line, float thDist = 0.05);
+    static void DrawLineDirection(cv::Mat& image, cv::Point3f le);
     static bool GenerateRansacIndices(int TotalNum, int SelectNum, int MaxIterations, std::vector<std::vector<size_t>>& vSets);
 
     template<class T>

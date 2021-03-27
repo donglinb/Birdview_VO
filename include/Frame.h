@@ -11,6 +11,7 @@
 
 #include "PointExtractor.h"
 #include "LineExtractor.h"
+#include "FeatureLine.h"
 #include "SE2.h"
 
 namespace birdview
@@ -34,9 +35,9 @@ public:
     const cv::Mat& GetMaskRaw() const { return mMaskRaw; }
 
     // manhattan lines
-    bool CalculateLineMainDirs();
-    bool GetMainDirs(cv::Point3f& dir1, cv::Point3f& dir2) const;
-    void SetMainDirs(const cv::Point3f& dir1, const cv::Point3f& dir2);
+    bool CalculateMajorLine();
+    bool GetMajorLine(Line& line) const;
+    void SetMajorLine(const Line& line);
 
     static bool PosInGrid(const cv::Point2f& pt, int& posX, int& posY) ;
     void AssignKeyPointsInGrid();
@@ -46,8 +47,11 @@ public:
     virtual void SetPoseTbw(const SE2& Tbw) { mTbw = Tbw; }
 
     static cv::Point2f BirdviewKP2XY(const cv::KeyPoint &kp);
+    static cv::Point2f BirdviewPT2XY(const cv::Point2f& pt);
     static cv::Point2f ProjectXY2Birdview(const cv::Point2f &p);
     static bool PosInImage(const cv::Point2f& pt);
+    static double Pixel2Meter() { return pixel2meter; }
+    static double Meter2Pixel() { return meter2pixel; }
 
     template<typename T>
     static bool ProjectXY2Birdview(const T X, const T Y, T& u, T& v)
@@ -57,7 +61,19 @@ public:
             return false;
         }
         u = T(birdviewCols) / T(2.0) - Y * T(meter2pixel);
-        v = T(birdviewRows) / (2.0) - (X - T(rear_axle_to_center)) * (meter2pixel);
+        v = T(birdviewRows) / T(2.0) - (X - T(rear_axle_to_center)) * (meter2pixel);
+        return true;
+    }
+
+    template<typename T>
+    static bool BirdviewKP2XY(const T& u, const T& v, T& X, T& Y)
+    {
+        if(!mbParamsSet)
+        {
+            return false;
+        }
+        X = (T(birdviewRows) / T(2.0) - v) * T(pixel2meter) + T(rear_axle_to_center);
+        Y = (T(birdviewCols) / T(2.0) - u) * T(pixel2meter);
         return true;
     }
 
@@ -73,8 +89,8 @@ protected:
 
     // manhattan lines
     LineExtractorPtr mpLineExtractor;
-    cv::Point3f mMainDir1, mMainDir2;
-    bool mbIsMainDirSet;
+    Line mMajorLine;  // in XY coordinate
+    bool mbIsMajorLineSet;
 
     cv::Mat mImageRaw;
     cv::Mat mMaskRaw;

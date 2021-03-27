@@ -30,5 +30,5 @@ target_link_libraries(test_ceres ceres ${OpenCV_LIBS})
 add_executable(test_line test/test_line.cpp src/KeyLineGeometry.cpp)
 target_link_libraries(test_line ${OpenCV_LIBS} stlplus linedesc DBoW2)
 
-add_executable(test_line_geometry test/test_line_geometry.cpp)
-target_link_libraries(test_line_geometry ${OpenCV_LIBS} linedesc)
+add_executable(test_line_geometry test/test_line_geometry.cpp src/KeyLineGeometry.cpp)
+target_link_libraries(test_line_geometry ${OpenCV_LIBS} linedesc DBoW2)

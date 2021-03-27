@@ -5,6 +5,7 @@
 #include <iostream>
 #include <random>
 #include <ceres/ceres.h>
+#include <ceres/rotation.h>
 
 #include "SE2.h"
 #include "cost_functor.h"

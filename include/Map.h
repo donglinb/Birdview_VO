@@ -11,6 +11,7 @@
 
 #include "KeyFrame.h"
 #include "MapPoint.h"
+#include "FeatureLine.h"
 
 namespace birdview
 {
@@ -41,6 +42,10 @@ public:
     const std::vector<KeyFramePtr>& GetLocalKeyFrames();
     const std::vector<MapPointPtr>& GetLocalMapPoints();
 
+    void SetMajorLine(const Line& major_line);
+    bool GetMajorLine(Line& major_line);
+    bool IsMajorLineSet();
+
 protected:
 
     // global map
@@ -53,10 +58,14 @@ protected:
     std::vector<MapPointPtr> mvpLocalMapPoints;
     bool mbNeedLocalBA;
 
+    Line mMajorLine;
+    bool mbIsMajorLineSet;
+
     std::mutex mMutexKF;
     std::mutex mMutexMP;
     std::mutex mMutexCurrentKF;
     std::mutex mMutexLocalMap;
+    std::mutex mMutexMajorLine;
 };
 typedef std::shared_ptr<Map> MapPtr;
 

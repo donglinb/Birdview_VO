@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "Optimizer.h"
+#include "Config.h"
 
 namespace birdview
 {
@@ -28,7 +29,17 @@ void LocalMapper::Run()
         if(mpMap->NeedLocalBA())
         {
             // local BA
-            Optimizer::LocalBundleAdjustment(mpMap);
+            if(Config::UseLines() && mpMap->IsMajorLineSet())
+            {
+                Line major_line;
+                mpMap->GetMajorLine(major_line);
+                Optimizer::LocalBundleAdjustment(mpMap, major_line);
+                mpMap->SetMajorLine(major_line);
+            }
+            else
+            {
+                Optimizer::LocalBundleAdjustment(mpMap);
+            }
             mpMap->LocalBAFinished();
         }
         else

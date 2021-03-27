@@ -15,10 +15,11 @@ System::System()
     MapViewer::MapViewerConfig cfg;
     mpMapViewer = std::make_shared<MapViewer>("MapViewer", cfg);
 
+    mpLocalMapper = std::make_shared<LocalMapper>(mpMap);
+
     mpTracker = std::make_shared<Tracker>(mpMap);
     mpTracker->SetMapViewer(mpMapViewer);
-
-    mpLocalMapper = std::make_shared<LocalMapper>(mpMap);
+    mpTracker->SetLocalMapper(mpLocalMapper);
 }
 
 void System::Start()

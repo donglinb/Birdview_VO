@@ -10,7 +10,7 @@ namespace birdview
 {
 
 Map::Map()
-  : mpCurrentKF(nullptr), mbNeedLocalBA(false)
+  : mpCurrentKF(nullptr), mbNeedLocalBA(false), mbIsMajorLineSet(false)
 {
     ;
 }
@@ -77,7 +77,7 @@ void Map::UpdateLocalMap()
 
     setKeyFrames.insert(mpCurrentKF);
 
-    int n = 1;
+    int n = 2;
 
     while(n >= 0)
     {
@@ -134,6 +134,28 @@ void Map::LocalBAFinished()
 {
     std::unique_lock<std::mutex> lock(mMutexLocalMap);
     mbNeedLocalBA = false;
+}
+
+void Map::SetMajorLine(const Line &major_line)
+{
+    std::unique_lock<std::mutex> lock(mMutexMajorLine);
+    mMajorLine = major_line;
+    mbIsMajorLineSet = true;
+}
+
+bool Map::GetMajorLine(Line& major_line)
+{
+    std::unique_lock<std::mutex> lock(mMutexMajorLine);
+    if(!mbIsMajorLineSet)
+        return false;
+    major_line = mMajorLine;
+    return true;
+}
+
+bool Map::IsMajorLineSet()
+{
+    std::unique_lock<std::mutex> lock(mMutexMajorLine);
+    return mbIsMajorLineSet;
 }
 
 }  // namespace birdview

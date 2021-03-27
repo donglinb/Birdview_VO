@@ -13,12 +13,14 @@
 #include "PointExtractor.h"
 #include "PointMatcher.h"
 #include "LineExtractor.h"
+#include "FeatureLine.h"
 #include "IcpSolver.h"
 #include "Frame.h"
 #include "KeyFrame.h"
 #include "Viewer.h"
 #include "Map.h"
 #include "SE2.h"
+#include "LocalMapping.h"
 
 namespace birdview
 {
@@ -36,9 +38,10 @@ public:
     void AssociateMapPoints();
 
     // manhattan lines
-    bool CalculateLineMainDirs(const FramePtr& pFrame);
+    bool CalculateMajorLine(const FramePtr& pFrame);
 
     void SetMapViewer(MapViewerPtr pMapViewer);
+    void SetLocalMapper(LocalMapperPtr pLocalMapper);
 
 protected:
 
@@ -55,6 +58,10 @@ protected:
 
     std::vector<cv::DMatch> mvMatches12;
     std::vector<cv::Point2f> mvPrevMatched;
+
+    cv::Point2f mLastDir;
+
+    LocalMapperPtr mpLocalMapper;
 
     template<class T>
     void reduceVector(std::vector<T> &v, const std::vector<bool>& status)

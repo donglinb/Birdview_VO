@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "Map.h"
+#include "FeatureLine.h"
 
 namespace birdview
 {

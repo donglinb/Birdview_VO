@@ -9,6 +9,7 @@
 
 using namespace std;
 using KeyLine =  slam::line_descriptor::KeyLine;
+using namespace birdview;
 
 int main()
 {
@@ -39,5 +40,16 @@ int main()
     cv::Point3f inter = KeyLineGeometry::GetKeyLineIntersect(kl1,kl2);
     cout << "intersect = " << inter << endl;
 
+    cv::Mat image(384, 384, CV_32FC3);
+
+    cv::Point3f s(2.0, 4.0, 1.0), e(1.0, 1.0, 1.0);
+    cv::Point3f le = s.cross(e);
+    le = le / sqrt((le.x * le.x + le.y * le.y));
+
+    KeyLineGeometry::DrawLineDirection(image, le);
+    cv::imshow("image", image);
+    cv::waitKey(0);
+
     return 0;
 }
+
